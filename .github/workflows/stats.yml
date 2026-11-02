@@ -45,6 +45,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add downloads.csv downloads.svg
+          git add downloads.csv releases.csv downloads.svg
           git commit -q -m "统计 $(TZ=Asia/Shanghai date +%F)"
           git push -q origin stats

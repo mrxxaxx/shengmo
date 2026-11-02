@@ -1,7 +1,8 @@
 // 下载统计：读公开仓库 mrxxaxx/shengmo 每个发行版附件的下载次数（GitHub 只给累计数）。
 // 每个版本看三样：latest.json（自动检查更新每次都下载它，只记在当时最新的版本上，约等于检查更新次数）、
 // 安装包（手动下载的 + 自动更新的）、签名（只有自动更新才下载）。所以 安装包 − 签名 ≈ 手动下载的新用户。
-// 给了 --csv 就把这次的数追加到 CSV（每个版本一行），并和 CSV 里这个版本上一次的数比，算出新增。
+// 给了 --csv 就把这次的数追加到 CSV（每个版本一行），并和 CSV 里这个版本上一次的数比，算出新增；
+// 同一目录下再写一份 releases.csv（各版本的发布日期），给 stats-chart.mjs 标版本用。
 // 本仓库的 .github/workflows/stats.yml 每天跑一次，CSV 存在本仓库的 stats 分支。
 //
 // 单独运行：node scripts/release-stats.mjs            只看现在的累计数
@@ -9,6 +10,7 @@
 // 输出是 Markdown 表格（流程里直接写进运行页面的摘要）。
 
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 const REPO = "mrxxaxx/shengmo";
 const HEADER = "time,tag,checks,setup,sig";
@@ -49,6 +51,9 @@ const out = [];
 if (csv) {
   if (!existsSync(csv)) writeFileSync(csv, `${HEADER}\n`);
   appendFileSync(csv, now.map((r) => `${time},${r.tag},${r.checks},${r.setup},${r.sig}\n`).join(""));
+  // 各版本的发布日期（北京时间），画图时标在时间轴上
+  const pub = releases.map((r) => `${r.tag_name},${new Date(new Date(r.published_at).getTime() + 8 * 3600e3).toISOString().slice(0, 10)}\n`);
+  writeFileSync(join(dirname(csv), "releases.csv"), `tag,published\n${pub.join("")}`);
   const since = [...last.values()][0]?.time;
   out.push(`### 下载统计（${time}，新增从 ${since ?? "第一次记录"} 算起）`, "");
   out.push("| 版本 | 检查更新 | 新用户下载 | 自动更新 | 累计：检查 / 安装包 / 签名 |", "|---|---|---|---|---|");
