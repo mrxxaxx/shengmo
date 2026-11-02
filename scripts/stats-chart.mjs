@@ -1,8 +1,8 @@
 // 下载统计图：读 release-stats.mjs 记的 CSV，画一张 SVG 放进 README（像 star 历史图那样）。
-// 上面一行：标题，右边两个大数字（累计下载、昨天在用）。下面两张图背靠背，共用中间的时间轴，各有自己的纵轴
-// （累计数越涨越大，放一起每天在用那条会被压平）：
-//   上（红，往上长）：累计下载 = 所有版本的 安装包 − 签名（≈ 手动下载的新用户）加起来，平滑曲线 + 渐变；
-//   下（蓝，往下长）：每天在用 = 所有版本 latest.json 的次数比前一天多了多少（自动检查一天最多一次，≈ 那天打开过的人），从第二天起才有。
+// 图上只写“下载”“日活”，不解释怎么算的。上面一行：截至哪天，右边两个大数字（下载、日活）。
+// 下面两张图背靠背，共用中间的时间轴，各有自己的纵轴（累计数越涨越大，放一起日活那条会被压平）：
+//   上（红，往上长）：下载 = 所有版本安装包的下载次数加起来（新装和自动更新都算），平滑曲线 + 渐变；
+//   下（蓝，往下长）：日活 = 所有版本 latest.json 的次数比前一天多了多少（自动检查一天最多一次，≈ 那天打开过的人），从第二天起才有。
 // 每个版本的发布日期（releases.csv，没有就用第一次出现在 CSV 的那天）在两张图上都标一条细线，版本号写在上面那张；
 // 发布日期在统计开始之前的不标。
 // 每天 0 点记的数算前一天的；同一天记了几次只用最后一次。亮色、暗色跟着 GitHub 的主题（SVG 里的 prefers-color-scheme）。
@@ -18,19 +18,23 @@ if (!csv || !out) throw new Error("用法：node scripts/stats-chart.mjs <downlo
 /** 记录时间往前推 1 分钟取日期：0 点那次算前一天 */
 const dayOf = (time) => new Date(new Date(`${time.replace(" ", "T")}:00Z`).getTime() - 60e3).toISOString().slice(0, 10);
 
-// 按天把各版本加起来；记下每个版本第一次出现的那天
+// 按天把各版本加起来；记下每个版本第一次出现的那天。
+// 删掉的旧版本从某次记录起就没有了：沿用它最后一次的数，不然累计数会往下掉
 const byDay = new Map();
 const released = new Map();
 const byTime = new Map();
 for (const line of readFileSync(csv, "utf8").trim().split("\n").slice(1)) {
-  const [time, tag, checks, setup, sig] = line.split(",");
-  const s = byTime.get(time) ?? { checks: 0, fresh: 0 };
-  s.checks += +checks;
-  s.fresh += +setup - +sig;
-  byTime.set(time, s);
+  const [time, tag, checks, setup] = line.split(",");
+  if (!byTime.has(time)) byTime.set(time, new Map());
+  byTime.get(time).set(tag, { checks: +checks, setup: +setup });
   if (!released.has(tag)) released.set(tag, dayOf(time));
 }
-for (const [time, s] of byTime) byDay.set(dayOf(time), s);
+const latest = new Map();
+for (const time of [...byTime.keys()].sort()) {
+  for (const [tag, v] of byTime.get(time)) latest.set(tag, v);
+  const sum = (k) => [...latest.values()].reduce((a, v) => a + v[k], 0);
+  byDay.set(dayOf(time), { checks: sum("checks"), fresh: sum("setup") });
+}
 // 有 releases.csv 就用真实的发布日期（开始统计前发布的版本不会都挤在第一天）
 const pubFile = join(dirname(csv), "releases.csv");
 if (existsSync(pubFile)) {
@@ -93,12 +97,11 @@ let body = "";
 // 上面一行：标题 + 两个大数字
 const total = n ? days[n - 1].fresh : 0;
 const lastDaily = n > 1 ? daily[n - 1] : null;
-body += `<text x="${L - 24}" y="44" class="title">声墨 · 下载统计</text>`;
-body += `<text x="${L - 24}" y="66" class="t3">每天自动更新${n ? ` · 截至 ${md(days[n - 1].day)}` : ""}</text>`;
+body += `<text x="${L - 24}" y="54" class="title">${n ? `截至 ${md(days[n - 1].day)}` : ""}</text>`;
 const kpi = (rx, label, value) =>
   `<text x="${rx}" y="34" class="t3" text-anchor="end">${esc(label)}</text><text x="${rx}" y="66" class="hero" text-anchor="end">${esc(value)}</text>`;
-body += kpi(R, "昨天在用", lastDaily === null ? "—" : fmt(lastDaily));
-body += kpi(R - 180, "累计下载", fmt(total));
+body += kpi(R, "日活", lastDaily === null ? "—" : fmt(lastDaily));
+body += kpi(R - 160, "下载", fmt(total));
 
 // 发版的位置（只有一天时不标：线会穿过唯一的点）
 const marks = [];
@@ -139,8 +142,8 @@ function panel(box, color, label, values, wash, tags, down) {
   return s;
 }
 
-body += panel(TOP, RED, "累计下载（新用户）", days.map((d) => d.fresh), "wash", true, false);
-body += panel(BOTTOM, BLUE, "每天在用（检查更新）", daily, "washDown", false, true);
+body += panel(TOP, RED, "下载", days.map((d) => d.fresh), "wash", true, false);
+body += panel(BOTTOM, BLUE, "日活", daily, "washDown", false, true);
 
 // 中间的时间轴：第一天、中间、最后一天
 if (n) {
@@ -151,7 +154,7 @@ if (n) {
   });
 }
 
-const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="声墨下载统计：累计下载 ${total}">
+const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="声墨：下载 ${total}">
 <defs>
   <linearGradient id="wash" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="${RED}" stop-opacity="0.28"/>
@@ -165,7 +168,7 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" 
 <style>
   text { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif; }
   .bg { fill: #f6f8fa; }
-  .title { font-size: 18px; font-weight: 600; fill: #1f2328; }
+  .title { font-size: 14px; fill: #59636e; }
   .t2 { font-size: 13px; fill: #59636e; }
   .t3 { font-size: 12px; fill: #818b98; }
   .tag { font-size: 11px; font-weight: 600; fill: #59636e; }
@@ -175,7 +178,8 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" 
   .ring { stroke: #f6f8fa; stroke-width: 2; }
   @media (prefers-color-scheme: dark) {
     .bg { fill: #151b23; }
-    .title, .hero { fill: #f0f6fc; }
+    .hero { fill: #f0f6fc; }
+    .title { fill: #9198a1; }
     .t2, .tag { fill: #9198a1; }
     .t3 { fill: #768390; }
     .grid { stroke: #262c36; }

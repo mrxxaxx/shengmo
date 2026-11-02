@@ -1,6 +1,6 @@
 // 下载统计：读公开仓库 mrxxaxx/shengmo 每个发行版附件的下载次数（GitHub 只给累计数）。
-// 每个版本看三样：latest.json（自动检查更新每次都下载它，只记在当时最新的版本上，约等于检查更新次数）、
-// 安装包（手动下载的 + 自动更新的）、签名（只有自动更新才下载）。所以 安装包 − 签名 ≈ 手动下载的新用户。
+// 每个版本看两样：安装包的下载次数（新装和自动更新都算），latest.json 的下载次数（声墨每天自动检查更新一次就下载一次，
+// 只记在当时最新的版本上，约等于日活）。CSV 里还留着签名的次数一列（以前用过），现在不用了。
 // 给了 --csv 就把这次的数追加到 CSV（每个版本一行），并和 CSV 里这个版本上一次的数比，算出新增；
 // 同一目录下再写一份 releases.csv（各版本的发布日期），给 stats-chart.mjs 标版本用。
 // 本仓库的 .github/workflows/stats.yml 每天跑一次，CSV 存在本仓库的 stats 分支。
@@ -56,17 +56,14 @@ if (csv) {
   writeFileSync(join(dirname(csv), "releases.csv"), `tag,published\n${pub.join("")}`);
   const since = [...last.values()][0]?.time;
   out.push(`### 下载统计（${time}，新增从 ${since ?? "第一次记录"} 算起）`, "");
-  out.push("| 版本 | 检查更新 | 新用户下载 | 自动更新 | 累计：检查 / 安装包 / 签名 |", "|---|---|---|---|---|");
+  out.push("| 版本 | 下载 | 检查更新 |", "|---|---|---|");
   for (const r of now) {
-    const p = last.get(r.tag) ?? { checks: 0, setup: 0, sig: 0 };
-    const dc = r.checks - p.checks;
-    const ds = r.setup - p.setup;
-    const dg = r.sig - p.sig;
-    out.push(`| ${r.tag} | +${dc} | +${ds - dg} | +${dg} | ${r.checks} / ${r.setup} / ${r.sig} |`);
+    const p = last.get(r.tag) ?? { checks: 0, setup: 0 };
+    out.push(`| ${r.tag} | ${r.setup}（+${r.setup - p.setup}） | ${r.checks}（+${r.checks - p.checks}） |`);
   }
 } else {
   out.push(`### 下载统计（${time}，累计）`, "");
-  out.push("| 版本 | 检查更新 | 安装包 | 签名（自动更新） | 新用户下载 ≈ |", "|---|---|---|---|---|");
-  for (const r of now) out.push(`| ${r.tag} | ${r.checks} | ${r.setup} | ${r.sig} | ${r.setup - r.sig} |`);
+  out.push("| 版本 | 下载 | 检查更新 |", "|---|---|---|");
+  for (const r of now) out.push(`| ${r.tag} | ${r.setup} | ${r.checks} |`);
 }
 console.log(out.join("\n"));
