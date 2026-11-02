@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="404" viewBox="0 0 840 404" role="img" aria-label="声墨下载统计：累计下载 2">
+<defs>
+  <linearGradient id="wash" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#E5533D" stop-opacity="0.28"/>
+    <stop offset="1" stop-color="#E5533D" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="washDown" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#2F7FD8" stop-opacity="0"/>
+    <stop offset="1" stop-color="#2F7FD8" stop-opacity="0.28"/>
+  </linearGradient>
+</defs>
+<style>
+  text { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif; }
+  .bg { fill: #f6f8fa; }
+  .title { font-size: 18px; font-weight: 600; fill: #1f2328; }
+  .t2 { font-size: 13px; fill: #59636e; }
+  .t3 { font-size: 12px; fill: #818b98; }
+  .tag { font-size: 11px; font-weight: 600; fill: #59636e; }
+  .hero { font-size: 28px; font-weight: 600; fill: #1f2328; }
+  .grid { stroke: #e6eaef; stroke-width: 1; }
+  .mark { stroke: #d1d9e0; stroke-width: 1; }
+  .ring { stroke: #f6f8fa; stroke-width: 2; }
+  @media (prefers-color-scheme: dark) {
+    .bg { fill: #151b23; }
+    .title, .hero { fill: #f0f6fc; }
+    .t2, .tag { fill: #9198a1; }
+    .t3 { fill: #768390; }
+    .grid { stroke: #262c36; }
+    .mark { stroke: #3d444d; }
+    .ring { stroke: #151b23; }
+  }
+</style>
+<rect class="bg" width="840" height="404" rx="12"/>
+<text x="28" y="44" class="title">声墨 · 下载统计</text><text x="28" y="66" class="t3">每天自动更新 · 截至 11/3</text><text x="812" y="34" class="t3" text-anchor="end">昨天在用</text><text x="812" y="66" class="hero" text-anchor="end">—</text><text x="632" y="34" class="t3" text-anchor="end">累计下载</text><text x="632" y="66" class="hero" text-anchor="end">2</text><circle cx="33" cy="100" r="5" fill="#E5533D"/><text x="44" y="104" class="t2">累计下载（新用户）</text><line x1="52" x2="812" y1="228" y2="228" class="grid"/><text x="42" y="232" class="t3" text-anchor="end">0</text><line x1="52" x2="812" y1="182" y2="182" class="grid"/><text x="42" y="186" class="t3" text-anchor="end">1</text><line x1="52" x2="812" y1="136" y2="136" class="grid"/><text x="42" y="140" class="t3" text-anchor="end">2</text><circle cx="432" cy="136" r="4.5" fill="#E5533D" class="ring"/><circle cx="33" cy="378" r="5" fill="#2F7FD8"/><text x="44" y="382" class="t2">每天在用（检查更新）</text><line x1="52" x2="812" y1="264" y2="264" class="grid"/><text x="42" y="268" class="t3" text-anchor="end">0</text><line x1="52" x2="812" y1="356" y2="356" class="grid"/><text x="42" y="360" class="t3" text-anchor="end">1</text><text x="432" y="314" class="t3" text-anchor="middle">记满两天才有，明天再来看</text><text x="432" y="252" class="t3" text-anchor="middle">11/3</text>
+</svg>
