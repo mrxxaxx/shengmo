@@ -1,8 +1,8 @@
 // 下载统计图：读 release-stats.mjs 记的 CSV，画一张 SVG 放进 README（像 star 历史图那样）。
-// 上面一行：标题，右边两个大数字（累计下载、昨天在用）。下面两张图上下排，共用一条时间轴，各有自己的纵轴
+// 上面一行：标题，右边两个大数字（累计下载、昨天在用）。下面两张图背靠背，共用中间的时间轴，各有自己的纵轴
 // （累计数越涨越大，放一起每天在用那条会被压平）：
-//   上（红）：累计下载 = 所有版本的 安装包 − 签名（≈ 手动下载的新用户）加起来，平滑曲线 + 渐变；
-//   下（蓝）：每天在用 = 所有版本 latest.json 的次数比前一天多了多少（自动检查一天最多一次，≈ 那天打开过的人），从第二天起才有。
+//   上（红，往上长）：累计下载 = 所有版本的 安装包 − 签名（≈ 手动下载的新用户）加起来，平滑曲线 + 渐变；
+//   下（蓝，往下长）：每天在用 = 所有版本 latest.json 的次数比前一天多了多少（自动检查一天最多一次，≈ 那天打开过的人），从第二天起才有。
 // 每个版本的发布日期（releases.csv，没有就用第一次出现在 CSV 的那天）在两张图上都标一条细线，版本号写在上面那张；
 // 发布日期在统计开始之前的不标。
 // 每天 0 点记的数算前一天的；同一天记了几次只用最后一次。亮色、暗色跟着 GitHub 的主题（SVG 里的 prefers-color-scheme）。
@@ -45,11 +45,13 @@ const n = days.length;
 const daily = days.map((d, i) => (i ? Math.max(0, d.checks - days[i - 1].checks) : null));
 
 const W = 840;
-const H = 420;
+const H = 404;
 const L = 52; // 图的左边（纵轴刻度在它左边）
 const R = W - 28;
-const TOP = { label: 104, top: 136, bottom: 236 };
-const BOTTOM = { label: 280, top: 300, bottom: 372 };
+// 上面那张的底和下面那张的顶都是 0，中间夹着日期
+const TOP = { label: 104, top: 136, bottom: 228 };
+const AXIS_Y = 248;
+const BOTTOM = { label: 382, top: 264, bottom: 356 };
 const RED = "#E5533D";
 const BLUE = "#2F7FD8";
 const md = (day) => `${+day.slice(5, 7)}/${+day.slice(8, 10)}`;
@@ -107,19 +109,21 @@ if (n > 1) {
   }
 }
 
-/** 一张图：名称（圆点 + 文字）、网格、纵轴刻度、发版细线、曲线和末端圆点 */
-function panel(box, color, label, values, area, tags) {
+/** 一张图：名称（圆点 + 文字）、网格、纵轴刻度、发版细线、曲线和末端圆点。down：0 在上面，往下长 */
+function panel(box, color, label, values, wash, tags, down) {
   let s = `<circle cx="${L - 19}" cy="${box.label - 4}" r="5" fill="${color}"/><text x="${L - 8}" y="${box.label}" class="t2">${esc(label)}</text>`;
   const pts = values.map((v, i) => (v === null ? null : [x(i), v])).filter(Boolean);
   const t = ticks(Math.max(0, ...pts.map(([, v]) => v)));
-  const y = (v) => box.bottom - (v / t.top) * (box.bottom - box.top);
+  const h = box.bottom - box.top;
+  const y = (v) => (down ? box.top + (v / t.top) * h : box.bottom - (v / t.top) * h);
+  const base = down ? box.top : box.bottom;
   for (const v of t.list) {
     s += `<line x1="${L}" x2="${R}" y1="${y(v)}" y2="${y(v)}" class="grid"/>`;
     s += `<text x="${L - 10}" y="${y(v) + 4}" class="t3" text-anchor="end">${fmt(v)}</text>`;
   }
   let lastLabel = -Infinity;
   for (const m of marks) {
-    s += `<line x1="${m.px}" x2="${m.px}" y1="${box.top - (tags ? 12 : 4)}" y2="${box.bottom}" class="mark"/>`;
+    s += `<line x1="${m.px}" x2="${m.px}" y1="${box.top - (tags ? 12 : 0)}" y2="${box.bottom}" class="mark"/>`;
     if (!tags || m.px - lastLabel < 64) continue;
     s += `<text x="${m.px + 4}" y="${box.top - 4}" class="tag">${esc(m.tag)}</text>`;
     lastLabel = m.px;
@@ -127,7 +131,7 @@ function panel(box, color, label, values, area, tags) {
   const xy = pts.map(([px, v]) => [px, y(v)]);
   if (xy.length > 1) {
     const line = smooth(xy);
-    if (area) s += `<path d="${line}L${xy.at(-1)[0].toFixed(1)},${box.bottom}L${xy[0][0].toFixed(1)},${box.bottom}Z" fill="url(#wash)"/>`;
+    s += `<path d="${line}L${xy.at(-1)[0].toFixed(1)},${base}L${xy[0][0].toFixed(1)},${base}Z" fill="url(#${wash})"/>`;
     s += `<path d="${line}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
   }
   if (xy.length) s += `<circle cx="${xy.at(-1)[0]}" cy="${xy.at(-1)[1]}" r="4.5" fill="${color}" class="ring"/>`;
@@ -135,15 +139,15 @@ function panel(box, color, label, values, area, tags) {
   return s;
 }
 
-body += panel(TOP, RED, "累计下载（新用户）", days.map((d) => d.fresh), true, true);
-body += panel(BOTTOM, BLUE, "每天在用（检查更新）", daily, false, false);
+body += panel(TOP, RED, "累计下载（新用户）", days.map((d) => d.fresh), "wash", true, false);
+body += panel(BOTTOM, BLUE, "每天在用（检查更新）", daily, "washDown", false, true);
 
-// 横轴：第一天、中间、最后一天
+// 中间的时间轴：第一天、中间、最后一天
 if (n) {
   const at = n > 2 ? [0, Math.floor((n - 1) / 2), n - 1] : n > 1 ? [0, n - 1] : [0];
   at.forEach((i, j) => {
     const anchor = n <= 1 ? "middle" : j === 0 ? "start" : j === at.length - 1 ? "end" : "middle";
-    body += `<text x="${x(i)}" y="${BOTTOM.bottom + 22}" class="t3" text-anchor="${anchor}">${md(days[i].day)}</text>`;
+    body += `<text x="${x(i)}" y="${AXIS_Y + 4}" class="t3" text-anchor="${anchor}">${md(days[i].day)}</text>`;
   });
 }
 
@@ -152,6 +156,10 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" 
   <linearGradient id="wash" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="${RED}" stop-opacity="0.28"/>
     <stop offset="1" stop-color="${RED}" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="washDown" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="${BLUE}" stop-opacity="0"/>
+    <stop offset="1" stop-color="${BLUE}" stop-opacity="0.28"/>
   </linearGradient>
 </defs>
 <style>
