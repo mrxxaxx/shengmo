@@ -1,6 +1,6 @@
 # 下载统计：每天北京时间 0 点读一次公开仓库各版本的下载次数（scripts/release-stats.mjs），
 # 追加到本仓库 stats 分支的 downloads.csv（GitHub 只给累计数，按天记下来才看得出趋势），
-# 这次的新增显示在运行页面的摘要里。也可以在 Actions 页面手动运行。
+# 这次的新增显示在运行页面的摘要里；再画一张图 downloads.svg 也放在 stats 分支，README 直接引用它。也可以在 Actions 页面手动运行。
 # 用 GitHub 自己的 Linux 机器；公开仓库不算 Actions 分钟数。
 
 name: stats
@@ -36,13 +36,15 @@ jobs:
       - name: 统计
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/release-stats.mjs --csv data/downloads.csv >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          node scripts/release-stats.mjs --csv data/downloads.csv >> "$GITHUB_STEP_SUMMARY"
+          node scripts/stats-chart.mjs data/downloads.csv data/downloads.svg
 
       - name: 提交
         working-directory: data
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add downloads.csv
+          git add downloads.csv downloads.svg
           git commit -q -m "统计 $(TZ=Asia/Shanghai date +%F)"
           git push -q origin stats
