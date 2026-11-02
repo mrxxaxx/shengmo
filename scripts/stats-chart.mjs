@@ -1,9 +1,10 @@
 // 下载统计图：读 release-stats.mjs 记的 CSV，画一张 SVG 放进 README（像 star 历史图那样）。
-// 上面一行：标题，右边两个大数字（累计下载、昨天检查更新）。
-// 主图：累计下载 = 所有版本的 安装包 − 签名（≈ 手动下载的新用户）加起来，一天一个点，平滑曲线 + 渐变；
-//       每个版本第一次出现在 CSV 的那天标一条细线和版本号，看得出发版后有没有涨。
-// 下面一条：每天检查更新 = 所有版本 latest.json 的次数比前一天多了多少（≈ 每天在用的人，自动检查一天最多一次），
-//       和主图同一条时间轴，自己的纵轴（不做双轴）。
+// 上面一行：标题，右边两个大数字（累计下载、昨天在用）；下面图例。
+// 一张图两条线，都是人数，共用一根纵轴：
+//   红：累计下载 = 所有版本的 安装包 − 签名（≈ 手动下载的新用户）加起来，平滑曲线 + 渐变；
+//   蓝：每天在用 = 所有版本 latest.json 的次数比前一天多了多少（自动检查一天最多一次，≈ 那天打开过的人），从第二天起才有。
+//   两条线之间的差 ≈ 下载了但没在用的人。
+// 每个版本第一次出现在 CSV 的那天标一条细线和版本号，看得出发版后有没有涨。
 // 每天 0 点记的数算前一天的；同一天记了几次只用最后一次。亮色、暗色跟着 GitHub 的主题（SVG 里的 prefers-color-scheme）。
 //
 // 单独运行：node scripts/stats-chart.mjs downloads.csv downloads.svg
@@ -34,12 +35,13 @@ const n = days.length;
 const daily = days.map((d, i) => (i ? Math.max(0, d.checks - days[i - 1].checks) : null));
 
 const W = 840;
-const H = 372;
+const H = 340;
 const L = 52; // 图的左边（纵轴刻度在它左边）
 const R = W - 28;
-const MAIN = { top: 104, bottom: 250 };
-const STRIP = { top: 294, bottom: 330 };
+const LEGEND_Y = 102;
+const MAIN = { top: 140, bottom: 296 };
 const RED = "#E5533D";
+const BLUE = "#2F7FD8";
 const md = (day) => `${+day.slice(5, 7)}/${+day.slice(8, 10)}`;
 const fmt = (v) => v.toLocaleString("en-US");
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
@@ -83,11 +85,17 @@ body += `<text x="${L - 24}" y="44" class="title">声墨 · 下载统计</text>`
 body += `<text x="${L - 24}" y="66" class="t3">每天自动更新${n ? ` · 截至 ${md(days[n - 1].day)}` : ""}</text>`;
 const kpi = (rx, label, value) =>
   `<text x="${rx}" y="34" class="t3" text-anchor="end">${esc(label)}</text><text x="${rx}" y="66" class="hero" text-anchor="end">${esc(value)}</text>`;
-body += kpi(R, "昨天在用（检查更新）", lastDaily === null ? "—" : fmt(lastDaily));
+body += kpi(R, "昨天在用", lastDaily === null ? "—" : fmt(lastDaily));
 body += kpi(R - 180, "累计下载", fmt(total));
 
-// 主图：网格、刻度
-const t = ticks(Math.max(0, ...days.map((d) => d.fresh)));
+// 图例：两条线，圆点 + 文字（颜色不单独表意）
+const legend = (lx, color, label) =>
+  `<circle cx="${lx + 5}" cy="${LEGEND_Y - 4}" r="5" fill="${color}"/><text x="${lx + 16}" y="${LEGEND_Y}" class="t2">${esc(label)}</text>`;
+body += legend(L - 24, RED, "累计下载（新用户）");
+body += legend(L + 130, BLUE, "每天在用（检查更新）");
+
+// 网格、刻度：两条线都是人数，共用一根纵轴
+const t = ticks(Math.max(0, ...days.map((d) => d.fresh), ...daily.slice(1)));
 const y = (v) => MAIN.bottom - (v / t.top) * (MAIN.bottom - MAIN.top);
 for (const v of t.list) {
   body += `<line x1="${L}" x2="${R}" y1="${y(v)}" y2="${y(v)}" class="grid"/>`;
@@ -106,40 +114,29 @@ if (n > 1) for (const [tag, day] of [...released.entries()].sort(([, a], [, b]) 
   lastLabel = px;
 }
 
-// 曲线 + 渐变 + 末端圆点
+// 累计下载：曲线 + 渐变
 const pts = days.map((d, i) => [x(i), y(d.fresh)]);
 if (n > 1) {
   const line = smooth(pts);
   body += `<path d="${line}L${pts[n - 1][0].toFixed(1)},${MAIN.bottom}L${pts[0][0].toFixed(1)},${MAIN.bottom}Z" fill="url(#wash)"/>`;
   body += `<path d="${line}" fill="none" stroke="${RED}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
 }
-if (n) body += `<circle cx="${pts[n - 1][0]}" cy="${pts[n - 1][1]}" r="4.5" fill="${RED}" class="ring"/>`;
 
-// 下面一条：每天检查更新
-body += `<text x="${L - 24}" y="${STRIP.top - 12}" class="t2">每天检查更新</text>`;
-body += `<line x1="${L}" x2="${R}" y1="${STRIP.bottom}" y2="${STRIP.bottom}" class="grid"/>`;
-if (n < 2) {
-  body += `<text x="${(L + R) / 2}" y="${STRIP.bottom - 10}" class="t3" text-anchor="middle">记满两天才有，明天再来看</text>`;
-} else {
-  const dmax = Math.max(1, ...daily.slice(1));
-  const bw = Math.max(2, Math.min(10, (R - L) / (n - 1) - 2));
-  daily.forEach((v, i) => {
-    if (!i || !v) return;
-    const h = (v / dmax) * (STRIP.bottom - STRIP.top);
-    const top = STRIP.bottom - h;
-    const r = Math.min(2, h, bw / 2);
-    const l = x(i) - bw / 2;
-    body += `<path d="M${l},${STRIP.bottom}V${top + r}Q${l},${top} ${l + r},${top}H${l + bw - r}Q${l + bw},${top} ${l + bw},${top + r}V${STRIP.bottom}Z" fill="${RED}" fill-opacity="0.75"/>`;
-  });
-  body += `<text x="${L - 10}" y="${STRIP.top + 4}" class="t3" text-anchor="end">${fmt(dmax)}</text>`;
-}
+// 每天在用：从第二天起才有，只画线不画面积
+const dpts = daily.map((v, i) => (i ? [x(i), y(v)] : null)).filter(Boolean);
+if (dpts.length > 1) body += `<path d="${smooth(dpts)}" fill="none" stroke="${BLUE}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+
+// 末端圆点（带一圈底色，压在线上也看得清）
+if (dpts.length) body += `<circle cx="${dpts.at(-1)[0]}" cy="${dpts.at(-1)[1]}" r="4.5" fill="${BLUE}" class="ring"/>`;
+if (n) body += `<circle cx="${pts[n - 1][0]}" cy="${pts[n - 1][1]}" r="4.5" fill="${RED}" class="ring"/>`;
+if (n < 2) body += `<text x="${(L + R) / 2}" y="${MAIN.bottom - 12}" class="t3" text-anchor="middle">记满两天才有曲线，明天再来看</text>`;
 
 // 横轴：第一天、中间、最后一天
 if (n) {
   const at = n > 2 ? [0, Math.floor((n - 1) / 2), n - 1] : n > 1 ? [0, n - 1] : [0];
   at.forEach((i, j) => {
     const anchor = n <= 1 ? "middle" : j === 0 ? "start" : j === at.length - 1 ? "end" : "middle";
-    body += `<text x="${x(i)}" y="${STRIP.bottom + 22}" class="t3" text-anchor="${anchor}">${md(days[i].day)}</text>`;
+    body += `<text x="${x(i)}" y="${MAIN.bottom + 22}" class="t3" text-anchor="${anchor}">${md(days[i].day)}</text>`;
   });
 }
 
