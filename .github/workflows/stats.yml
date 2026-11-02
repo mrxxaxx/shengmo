@@ -1,0 +1,48 @@
+# 下载统计：每天北京时间 0 点读一次公开仓库各版本的下载次数（scripts/release-stats.mjs），
+# 追加到本仓库 stats 分支的 downloads.csv（GitHub 只给累计数，按天记下来才看得出趋势），
+# 这次的新增显示在运行页面的摘要里。也可以在 Actions 页面手动运行。
+# 用 GitHub 自己的 Linux 机器；公开仓库不算 Actions 分钟数。
+
+name: stats
+
+on:
+  schedule:
+    - cron: "0 16 * * *"
+  workflow_dispatch:
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    # 要往 stats 分支提交
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # stats 分支只放统计数据，和代码没有共同历史；第一次运行时新建
+      - name: 取出 stats 分支
+        run: |
+          if git ls-remote --exit-code --heads origin stats; then
+            git fetch --depth 1 origin stats
+            git worktree add -B stats data origin/stats
+          else
+            git worktree add --orphan -b stats data
+          fi
+
+      - name: 统计
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/release-stats.mjs --csv data/downloads.csv >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 提交
+        working-directory: data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add downloads.csv
+          git commit -q -m "统计 $(TZ=Asia/Shanghai date +%F)"
+          git push -q origin stats
