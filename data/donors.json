@@ -1,0 +1,13 @@
+{
+  "donors": [
+    { "platform": "wechat", "name": "庞", "datetime": "2026-10-01 00:00:00" },
+    { "platform": "alipay", "name": "*赫", "datetime": "2026-11-08 19:43:31" },
+    { "platform": "wechat", "name": "Robin", "datetime": "2026-11-08 20:46:44" },
+    { "platform": "bilibili", "name": "南墙精舍", "datetime": "2026-11-08 21:09:38" },
+    { "platform": "wechat", "name": "浮世一梦", "datetime": "2026-11-09 00:41:57" },
+    { "platform": "wechat", "name": "不倒霉的熊。", "datetime": "2026-11-12 21:35:51" },
+    { "platform": "bilibili", "name": "orz_allen", "datetime": "2026-11-15 09:46:46" },
+    { "platform": "wechat", "name": "arccosx", "datetime": "2026-11-15 21:58:18" },
+    { "platform": "wechat", "name": "柳暗花又明", "datetime": "2026-11-15 23:25:01" }
+  ]
+}
