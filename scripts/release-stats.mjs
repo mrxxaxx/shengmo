@@ -1,7 +1,7 @@
 // 下载统计：读公开仓库 mrxxaxx/shengmo 每个发行版附件的下载次数（GitHub 只给累计数）。
 // 每个版本看两样：安装包的下载次数（新装和自动更新都算），latest.json 的下载次数（声墨每天自动检查更新一次就下载一次，
 // 只记在当时最新的版本上，约等于日活）。CSV 里还留着签名的次数一列（以前用过），现在不用了。
-// 给了 --csv 就把这次的数追加到 CSV（每个版本一行），并和 CSV 里这个版本上一次的数比，算出新增；
+// 给了 --csv 就把这次的数追加到 CSV（只记有变化的版本；最新版本每次都记，当心跳），并和 CSV 里这个版本上一次的数比，算出新增；
 // 同一目录下再写一份 releases.csv（各版本的发布日期），给 stats-chart.mjs 标版本用。
 // 本仓库的 .github/workflows/stats.yml 每天跑一次，CSV 存在本仓库的 stats 分支。
 //
@@ -50,7 +50,14 @@ if (csv && existsSync(csv)) {
 const out = [];
 if (csv) {
   if (!existsSync(csv)) writeFileSync(csv, `${HEADER}\n`);
-  appendFileSync(csv, now.map((r) => `${time},${r.tag},${r.checks},${r.setup},${r.sig}\n`).join(""));
+  // 只追加数字有变化的版本：没人下的老版本（latest.json 只记在当时最新的版本上，老版本数字冻结）不必天天占一行，
+  // 画图脚本本来就沿用每个版本上次的数，省行不改图。最新版本（now[0]）每次都记（心跳），保证每天都有一个数据点。
+  const changed = now.filter((r, idx) => {
+    if (idx === 0) return true;
+    const p = last.get(r.tag);
+    return !p || p.checks !== r.checks || p.setup !== r.setup || p.sig !== r.sig;
+  });
+  appendFileSync(csv, changed.map((r) => `${time},${r.tag},${r.checks},${r.setup},${r.sig}\n`).join(""));
   // 各版本的发布日期（北京时间），画图时标在时间轴上
   const pub = releases.map((r) => `${r.tag_name},${new Date(new Date(r.published_at).getTime() + 8 * 3600e3).toISOString().slice(0, 10)}\n`);
   writeFileSync(join(dirname(csv), "releases.csv"), `tag,published\n${pub.join("")}`);
