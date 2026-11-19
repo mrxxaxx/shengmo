@@ -28,20 +28,20 @@ jobs:
         run: |
           if git ls-remote --exit-code --heads origin stats; then
             git fetch --depth 1 origin stats
-            git worktree add -B stats data origin/stats
+            git worktree add -B stats statsdir origin/stats
           else
-            git worktree add --orphan -b stats data
+            git worktree add --orphan -b stats statsdir
           fi
 
       - name: 统计
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          node scripts/release-stats.mjs --csv data/downloads.csv >> "$GITHUB_STEP_SUMMARY"
-          node scripts/stats-chart.mjs data/downloads.csv data/downloads.svg
+          node scripts/release-stats.mjs --csv statsdir/downloads.csv >> "$GITHUB_STEP_SUMMARY"
+          node scripts/stats-chart.mjs statsdir/downloads.csv statsdir/downloads.svg
 
       - name: 提交
-        working-directory: data
+        working-directory: statsdir
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
