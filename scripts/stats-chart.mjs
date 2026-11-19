@@ -44,7 +44,22 @@ if (existsSync(pubFile)) {
     released.set(tag, day);
   }
 }
-const days = [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([day, s]) => ({ day, ...s }));
+const raw = [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([day, s]) => ({ day, ...s }));
+// 统计偶尔断几天（工作流失败等）：GitHub 只给累计数、补不回每天的真实值，就按累计数线性插值补齐中间几天，
+// 免得断档后第一次记录把好几天的日活挤成一根假尖峰（补出来的是估算，日期照常标）。
+const dayNum = (d) => Math.round(Date.parse(`${d}T00:00:00Z`) / 864e5);
+const days = [];
+for (let i = 0; i < raw.length; i++) {
+  if (i) {
+    const a = raw[i - 1], b = raw[i], gap = dayNum(b.day) - dayNum(a.day);
+    for (let k = 1; k < gap; k++) {
+      const t = k / gap;
+      const day = new Date((dayNum(a.day) + k) * 864e5).toISOString().slice(0, 10);
+      days.push({ day, checks: Math.round(a.checks + (b.checks - a.checks) * t), fresh: Math.round(a.fresh + (b.fresh - a.fresh) * t) });
+    }
+  }
+  days.push(raw[i]);
+}
 const n = days.length;
 const daily = days.map((d, i) => (i ? Math.max(0, d.checks - days[i - 1].checks) : null));
 
